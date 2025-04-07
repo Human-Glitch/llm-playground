@@ -96,7 +96,7 @@ async fn process_release(
     println!("Step 6: Getting auto-generated release notes...");
     let auto_notes = match &release.body {
         Some(notes) if !notes.trim().is_empty() => {
-            println!("  ✅ Auto-generated notes retrieved ({} chars).", notes.len());
+            println!("  ✅ Auto-generated notes retrieved:\n {}).", notes);
             notes.clone()
         },
         _ => {

@@ -64,13 +64,20 @@ impl OpenAIClient {
         format!(
             r#"TEMPLATE: https://onezelis.atlassian.net/browse/[Ticket ID]
                 EXAMPLE: https://onezelis.atlassian.net/browse/PRDY-3441
-                EXPECTED RESULT EXAMPLE: * [PDE-3441](https://onezelis.atlassian.net/browse/PDE-3441) Fixed an issue by @Human-Glitch in https://github.com/mdx-dev/CostEngine/pull/2329
+                EXPECTED FORMAT EXAMPLE: * [PDE-3441](https://onezelis.atlassian.net/browse/PDE-3441) Fixed an issue by @Human-Glitch in https://github.com/mdx-dev/CostEngine/pull/2329
+                DEFAULT FORMAT EXAMPLE: * [commit message] by @[author]
 
                INSTRUCTIONS:
-                - Please follow this template and deep link each item with the ticket url as shown in the example. 
-                - Always print the answer in a way that Github Release Notes understands as raw text, so the formatting is preserved when editing Github Release Notes.
-                - Create a heading for each Ticket ID Type: PD, PDE, PRDY
-                - Assign each line item to one of these headings by the ticket id number ascending:\n\n{}
+                - Please follow this template and deep link each item with the ticket url as shown in the example.
+                - If the information presented DOESN'T match up to the template, use the DEFAULT FORMAT with the following instructions:
+                    - Just return a list of commit messages instead.
+                - If the information presented DOES match up to the template, use the EXPECTED FORMAT with the following instructions:
+                    - Always print the answer in a way that Github Release Notes understands as raw text, so the formatting is preserved when editing Github Release Notes.
+                    - Create a heading for each Ticket ID Type: PD, PDE, PRDY
+                    - Assign each line item to one of these headings by the ticket id number ascending:\n\n{}
+
+                ALWAYS FOLLOW THESE INSTRUCTIONS:
+                - DO NOT MAKE UP ANY INFORMATION THAT IS NOT PRESENT IN THE UNFORMATTED NOTES.
             "#,
             unformatted_notes
         )
@@ -87,7 +94,7 @@ mod tests {
     fn given_valid_credentials_when_creating_client_then_succeeds() {
         let client = Client::new();
         let api_key = "test_api_key".to_string();
-        let model = "gpt-4";
+        let model = "gpt-4o";
         let openai_client = OpenAIClient::new(client, api_key.clone(), model);
         
         // Verify the model was set correctly

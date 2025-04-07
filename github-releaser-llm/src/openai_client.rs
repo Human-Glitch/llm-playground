@@ -6,6 +6,7 @@ pub struct OpenAIClient {
     http_client: Client,
     api_key: String,
     model: String,
+    base_url: String,
 }
 
 impl OpenAIClient {
@@ -14,6 +15,17 @@ impl OpenAIClient {
             http_client,
             api_key,
             model: model.to_string(),
+            base_url: "https://api.openai.com".to_string(),
+        }
+    }
+
+    // Create a new client with a custom base URL (for testing)
+    pub fn new_with_base_url(http_client: Client, api_key: String, model: &str, base_url: String) -> Self {
+        OpenAIClient {
+            http_client,
+            api_key,
+            model: model.to_string(),
+            base_url,
         }
     }
 
@@ -24,7 +36,7 @@ impl OpenAIClient {
     }
 
     async fn request_chat_completion(&self, prompt: &str) -> Result<String, Box<dyn Error>> {
-        let url = "https://api.openai.com/v1/chat/completions";
+        let url = format!("{}/v1/chat/completions", self.base_url);
         let body = json!({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
@@ -33,7 +45,7 @@ impl OpenAIClient {
 
         let resp = self
             .http_client
-            .post(url)
+            .post(&url)
             .header("Content-Type", "application/json")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
@@ -62,5 +74,135 @@ impl OpenAIClient {
             "#,
             unformatted_notes
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_openai_client_creation() {
+        let client = Client::new();
+        let api_key = "test_api_key".to_string();
+        let model = "gpt-4";
+        let openai_client = OpenAIClient::new(client, api_key.clone(), model);
+        
+        // Verify the model was set correctly
+        assert_eq!(openai_client.model, model);
+        assert_eq!(openai_client.api_key, api_key);
+    }
+
+    #[test]
+    fn test_build_release_notes_prompt() {
+        let unformatted_notes = "PDE-1234: Fixed bug\nPRDY-5678: Added feature";
+        let prompt = OpenAIClient::build_release_notes_prompt(unformatted_notes);
+        
+        // Verify the prompt contains our unformatted notes
+        assert!(prompt.contains(unformatted_notes));
+        // Verify the prompt contains the template instructions
+        assert!(prompt.contains("TEMPLATE: https://onezelis.atlassian.net/browse/[Ticket ID]"));
+    }
+
+    #[test]
+    fn test_format_release_notes_with_http_mock() {
+        let mut server = mockito::Server::new();
+        
+        // Create mock response that mimics OpenAI API - using simple content to avoid escape issues
+        let mock_response = r#"{
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Formatted release notes"
+                    },
+                    "finish_reason": "stop",
+                    "index": 0
+                }
+            ]
+        }"#;
+        
+        let mock = server.mock("POST", "/v1/chat/completions")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response)
+            .create();
+
+        let client = Client::new();
+        let openai_client = OpenAIClient::new_with_base_url(
+            client,
+            "fake_api_key".to_string(),
+            "gpt-4",
+            server.url()
+        );
+
+        // Test format_release_notes method
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let notes = "PDE-1234: Fixed bug\nPRDY-5678: Added feature";
+            openai_client.format_release_notes(notes).await.unwrap()
+        });
+
+        // Verify the result
+        assert_eq!(result, "Formatted release notes");
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn test_format_release_notes_error_handling() {
+        let mut server = mockito::Server::new();
+        
+        // Create a mock response with missing content field
+        let mock_response = r#"{
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "gpt-4",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant"
+                        // Missing "content" field
+                    },
+                    "finish_reason": "stop",
+                    "index": 0
+                }
+            ]
+        }"#;
+        
+        let mock = server.mock("POST", "/v1/chat/completions")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response)
+            .create();
+
+        let client = Client::new();
+        let openai_client = OpenAIClient::new_with_base_url(
+            client,
+            "fake_api_key".to_string(),
+            "gpt-4",
+            server.url()
+        );
+
+        // Test format_release_notes method with invalid response
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let notes = "PDE-1234: Fixed bug";
+            openai_client.format_release_notes(notes).await
+        });
+        
+        // Verify that we got an error
+        assert!(result.is_err());
+        
+        // Verify the mock was called
+        mock.assert();
     }
 }

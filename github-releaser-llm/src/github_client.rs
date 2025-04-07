@@ -204,7 +204,7 @@ impl GitHubClient {
 
         let body = json!({
             "tag_name": tag,
-            "previous_tag_name": "v0.1.0",
+            "previous_tag_name": "v1.0.0",
             "target_commitish": format!("release/{}", tag),
             "name": tag,
             "draft": false,

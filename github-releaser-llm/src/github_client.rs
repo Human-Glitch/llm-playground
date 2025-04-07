@@ -553,4 +553,298 @@ mod tests {
         // Verify the mock was called
         mock.assert();
     }
+
+    #[test]
+    fn given_valid_credentials_when_creating_client_then_succeeds() {
+        let client = Client::new();
+        let token = "test_token".to_string();
+        let github_client = GitHubClient::new(client, token);
+        
+        // Test passes if client is created successfully without panicking
+        assert_eq!(
+            github_client.api_url("test_endpoint"),
+            "https://api.github.com/repos/Human-Glitch/llm-playground/test_endpoint"
+        );
+    }
+
+    #[test]
+    fn given_existing_tag_when_getting_release_then_returns_release() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("GET", "/repos/Human-Glitch/llm-playground/releases/tags/v1.0.0")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id": 12345, "body": "Release notes"}"#)
+            .create();
+
+        // Create a client that will use our mock server instead of the real GitHub API
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let release = github_client.get_release_by_tag("v1.0.0").await.unwrap();
+            release
+        });
+        
+        // Verify the result
+        assert!(result.is_some());
+        let release = result.unwrap();
+        assert_eq!(release.id, 12345);
+        assert_eq!(release.body.unwrap(), "Release notes");
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_main_branch_when_getting_latest_commit_then_returns_sha() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("GET", "/repos/Human-Glitch/llm-playground/commits/main")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"sha": "abc123def456"}"#)
+            .create();
+
+        // Create a client that will use our mock server instead of the real GitHub API
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let sha = github_client.get_latest_commit_sha("main").await.unwrap();
+            sha
+        });
+        
+        // Verify the result
+        assert_eq!(result, "abc123def456");
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_valid_tag_info_when_creating_tag_object_then_returns_sha() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("POST", "/repos/Human-Glitch/llm-playground/git/tags")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"sha": "tag_object_sha_123"}"#)
+            .match_body(Matcher::Json(json!({
+                "tag": "v1.0.0",
+                "message": "Version 1.0.0",
+                "object": "commit_sha_456",
+                "type": "commit"
+            })))
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let sha = github_client.create_tag_object("v1.0.0", "Version 1.0.0", "commit_sha_456").await.unwrap();
+            sha
+        });
+        
+        // Verify the result
+        assert_eq!(result, "tag_object_sha_123");
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_valid_tag_when_creating_tag_ref_then_succeeds() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("POST", "/repos/Human-Glitch/llm-playground/git/refs")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{}"#)
+            .match_body(Matcher::Json(json!({
+                "ref": "refs/tags/v1.0.0",
+                "sha": "tag_sha_123"
+            })))
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            github_client.create_tag_ref("v1.0.0", "tag_sha_123").await
+        });
+        
+        // Verify the result
+        assert!(result.is_ok());
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_valid_release_info_when_creating_release_then_returns_release() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("POST", "/repos/Human-Glitch/llm-playground/releases")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id": 54321, "body": "Auto-generated release notes"}"#)
+            .match_body(Matcher::Json(json!({
+                "tag_name": "v1.0.0",
+                "target_commitish": "HEAD",
+                "name": "v1.0.0",
+                "draft": false,
+                "prerelease": false,
+                "generate_release_notes": true
+            })))
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let release = github_client.create_release("v1.0.0").await.unwrap();
+            release
+        });
+        
+        // Verify the result
+        assert_eq!(result.id, 54321);
+        assert_eq!(result.body.unwrap(), "Auto-generated release notes");
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_existing_release_when_updating_release_then_succeeds() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("PATCH", "/repos/Human-Glitch/llm-playground/releases/12345")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{}"#)
+            .match_body(Matcher::Json(json!({
+                "body": "Updated release notes"
+            })))
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            github_client.update_release(12345, "Updated release notes").await
+        });
+        
+        // Verify the result
+        assert!(result.is_ok());
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_existing_release_when_deleting_release_then_succeeds() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("DELETE", "/repos/Human-Glitch/llm-playground/releases/12345")
+            .with_status(204)
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            github_client.delete_release(12345).await
+        });
+        
+        // Verify the result
+        assert!(result.is_ok());
+        
+        // Verify the mock was called
+        mock.assert();
+    }
+
+    #[test]
+    fn given_existing_tag_when_deleting_tag_then_succeeds() {
+        let mut server = mockito::Server::new();
+        
+        // Set up the mock response
+        let mock = server.mock("DELETE", "/repos/Human-Glitch/llm-playground/git/refs/tags/v1.0.0")
+            .with_status(204)
+            .create();
+
+        // Create a client that will use our mock server
+        let client = Client::new();
+        let github_client = GitHubClient::new_with_base_url(
+            client, 
+            "fake_token".to_string(),
+            server.url()
+        );
+        
+        // Test the method with our mock
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            github_client.delete_tag("v1.0.0").await
+        });
+        
+        // Verify the result
+        assert!(result.is_ok());
+        
+        // Verify the mock was called
+        mock.assert();
+    }
 }

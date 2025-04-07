@@ -84,7 +84,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     #[test]
-    fn test_openai_client_creation() {
+    fn given_valid_credentials_when_creating_client_then_succeeds() {
         let client = Client::new();
         let api_key = "test_api_key".to_string();
         let model = "gpt-4";
@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_release_notes_prompt() {
+    fn given_unformatted_notes_when_building_prompt_then_returns_valid_prompt() {
         let unformatted_notes = "PDE-1234: Fixed bug\nPRDY-5678: Added feature";
         let prompt = OpenAIClient::build_release_notes_prompt(unformatted_notes);
         
@@ -107,7 +107,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_release_notes_with_http_mock() {
+    fn given_valid_input_when_formatting_release_notes_then_returns_formatted_notes() {
         let mut server = mockito::Server::new();
         
         // Create mock response that mimics OpenAI API - using simple content to avoid escape issues
@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_release_notes_error_handling() {
+    fn given_error_response_when_formatting_release_notes_then_handles_error() {
         let mut server = mockito::Server::new();
         
         // Create a mock response with missing content field

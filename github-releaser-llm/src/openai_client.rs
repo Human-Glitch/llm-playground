@@ -60,6 +60,7 @@ impl OpenAIClient {
         }
     }
 
+    /// Build the prompt for release notes formatting.
     fn build_release_notes_prompt(unformatted_notes: &str) -> String {
         format!(
             r#"TEMPLATE: https://onezelis.atlassian.net/browse/[Ticket ID]

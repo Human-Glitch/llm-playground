@@ -2,6 +2,9 @@
 
 A template project for creating Message Control Protocol (MCP) servers using FastMCP, designed for Large Language Model integrations.
 
+<img width="1445" alt="image" src="https://github.com/user-attachments/assets/fa185edf-bef0-45f2-a4a6-3ba16eea0e8b" />
+
+
 ## Features
 
 - Built with FastMCP for efficient MCP server implementation

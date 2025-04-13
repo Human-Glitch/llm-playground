@@ -1,5 +1,5 @@
 from typing import Any
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from services.http_client import HttpClient
 from services.nws_service import NWSService
 from services.zippopotam_service import ZippopotamService
@@ -76,6 +76,29 @@ async def get_weather_forecast(zipCode: int) -> str:
         forecasts.append(forecast)
 
     return "\n---\n".join(forecasts)
+
+@mcp.resource("prompts://format_location_data")
+def get_format_location_data() -> str:
+    with open("prompts/format_location_data.txt", "r", encoding="utf-8") as file:
+        file_prompt = file.read()
+
+    return file_prompt
+
+@mcp.prompt()
+async def format_location_data(context:Context, zipCode: int) -> str:
+    """Format location data into a specific structure using model context.
+    This demonstrates how to guide an LLM to format data consistently.
+
+    Args:
+        context: The model context for prompting
+        zipCode: The zip code to look up
+    """
+    zip_data = await zip_service.get_location(zipCode)
+    if not zip_data:
+        return "Unable to fetch zip data for this location."
+
+    prompt = f"{get_format_location_data()}\n\n{zip_data}"
+    return context.prompt(prompt)
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')

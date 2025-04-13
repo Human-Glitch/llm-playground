@@ -1,0 +1,9 @@
+Format input data into this exact structure (replace [] with actual values):
+Location Report
+--------------
+City: [city name in title case]
+State: [full state name, not abbreviation]
+Location: [latitude]°N, [longitude]°W
+County: [county name if available, otherwise "Not specified"]
+
+Given this location data:

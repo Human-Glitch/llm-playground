@@ -6,8 +6,8 @@ A collection of projects exploring Large Language Model (LLM) integrations and a
 
 ### github-releaser-llm
 
-A Rust CLI tool that automatically formats GitHub release notes using OpenAI's GPT models. This tool:
-- Creates and updates GitHub releases
+A Rust CLI tool that automatically create formats GitHub Release Packages and Release Notes using OpenAI's GPT models. This tool:
+- Creates and updates GitHub release packages and release notes
 - Formats release notes using OpenAI's GPT models
 - Manages tags and release updates
 - Supports custom formatting templates

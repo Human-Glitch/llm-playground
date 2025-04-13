@@ -1,44 +1,16 @@
 from typing import Any
-import httpx
 from mcp.server.fastmcp import FastMCP
+from services.http_client import HttpClient
+from services.nws_service import NWSService
+from services.zippopotam_service import ZippopotamService
 
 # Initialize FastMCP server
 mcp = FastMCP("llm-mcp-server-template")
 
-# Constants
-NWS_API_BASE = "https://api.weather.gov"
-ZIP_API_BASE = "http://api.zippopotam.us"
-USER_AGENT = "llm-mcp-server-template/1.0"
-
-async def make_nws_request(url: str) -> dict[str, Any] | None:
-    """Make a request to the NWS API with proper error handling."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/geo+json"
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            return response.json()
-        except (Exception) as e:
-            print("{e}")
-            return None
-        
-async def make_zip_request(url: str) -> dict[str, Any] | None:
-    """Make a request to the Zippopotam API with proper error handling."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/json"
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            return response.json()
-        except (Exception) as e:
-            print("{e}")
-            return None
+# Initialize services
+http_client = HttpClient()
+nws_service = NWSService(http_client)
+zip_service = ZippopotamService(http_client)
 
 def format_alert(feature: dict) -> str:
     """Format an alert feature into a readable string."""
@@ -58,9 +30,8 @@ async def get_weather_alerts(state: str) -> str:
     Args:
         state: Two-letter US state code (e.g. CA, NY)
     """
-    url = f"{NWS_API_BASE}/alerts/active/area/{state}"
-    data = await make_nws_request(url)
-
+    data = await nws_service.get_alerts(state)
+    
     if not data or "features" not in data:
         return "Unable to fetch alerts or no alerts found."
 
@@ -77,35 +48,26 @@ async def get_weather_forecast(zipCode: int) -> str:
     Args:
         zipCode: The zip code of the location
     """
-
-    # First get the location from the zip code
-    location_url = f"{ZIP_API_BASE}/us/{zipCode}"
-    zip_data = await make_zip_request(location_url)
-
+    zip_data = await zip_service.get_location(zipCode)
     if not zip_data:
         return "Unable to fetch zip data for this location."
     
     longitude = zip_data["places"][0]["longitude"]
     latitude = zip_data["places"][0]["latitude"]
 
-    # First get the forecast grid endpoint
-    points_url = f"{NWS_API_BASE}/points/{latitude},{longitude}"
-    points_data = await make_nws_request(points_url)
-
+    points_data = await nws_service.get_points(latitude, longitude)
     if not points_data:
         return "Unable to fetch forecast data for this location."
 
-    # Get the forecast URL from the points response
     forecast_url = points_data["properties"]["forecast"]
-    forecast_data = await make_nws_request(forecast_url)
-
+    forecast_data = await nws_service.get_forecast(forecast_url)
     if not forecast_data:
         return "Unable to fetch detailed forecast."
 
     # Format the periods into a readable forecast
     periods = forecast_data["properties"]["periods"]
     forecasts = []
-    for period in periods[:5]:  # Only show next 5 periods
+    for period in periods[:5]:
         forecast = f"""{period['name']}:
         Temperature: {period['temperature']}°{period['temperatureUnit']}
         Wind: {period['windSpeed']} {period['windDirection']}
@@ -115,7 +77,5 @@ async def get_weather_forecast(zipCode: int) -> str:
 
     return "\n---\n".join(forecasts)
 
-
 if __name__ == "__main__":
-    # Initialize and run the server
     mcp.run(transport='stdio')

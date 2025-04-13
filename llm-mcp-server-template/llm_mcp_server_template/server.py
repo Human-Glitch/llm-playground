@@ -21,7 +21,8 @@ async def make_nws_request(url: str) -> dict[str, Any] | None:
             response = await client.get(url, headers=headers, timeout=30.0)
             response.raise_for_status()
             return response.json()
-        except Exception:
+        except (Exception) as e:
+            print("{e}")
             return None
         
 async def make_zip_request(url: str) -> dict[str, Any] | None:
@@ -35,7 +36,8 @@ async def make_zip_request(url: str) -> dict[str, Any] | None:
             response = await client.get(url, headers=headers, timeout=30.0)
             response.raise_for_status()
             return response.json()
-        except (httpx.RequestError, httpx.HTTPStatusError):
+        except (Exception) as e:
+            print("{e}")
             return None
 
 def format_alert(feature: dict) -> str:
@@ -69,7 +71,7 @@ async def get_weather_alerts(state: str) -> str:
     return "\n---\n".join(alerts)
 
 @mcp.tool()
-async def get_forecast(zipCode: int) -> str:
+async def get_weather_forecast(zipCode: int) -> str:
     """Get weather forecast for a location.
 
     Args:

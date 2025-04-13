@@ -30,7 +30,3 @@ Each project has its own README with specific setup instructions and requirement
 ## License
 
 This repository contains multiple projects, each with its own license. Please refer to the individual project directories for specific license information.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

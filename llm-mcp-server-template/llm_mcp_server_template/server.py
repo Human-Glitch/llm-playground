@@ -1,5 +1,5 @@
-from typing import Any
-from mcp.server.fastmcp import FastMCP, Context
+from typing import Dict, Any, Optional
+from mcp.server.fastmcp import FastMCP
 from services.http_client import HttpClient
 from services.nws_service import NWSService
 from services.zippopotam_service import ZippopotamService
@@ -42,13 +42,13 @@ async def get_weather_alerts(state: str) -> str:
     return "\n---\n".join(alerts)
 
 @mcp.tool()
-async def get_weather_forecast(zipCode: int) -> str:
+async def get_weather_forecast(zip_code: int) -> str:
     """Get weather forecast for a location.
 
     Args:
-        zipCode: The zip code of the location
+        zip_code: The zip code of the location
     """
-    zip_data = await zip_service.get_location(zipCode)
+    zip_data = await zip_service.get_location(zip_code)
     if not zip_data:
         return "Unable to fetch zip data for this location."
     
@@ -85,20 +85,35 @@ def get_format_location_data() -> str:
     return file_prompt
 
 @mcp.prompt()
-async def format_location_data(context:Context, zipCode: int) -> str:
+async def format_location_data(context=None, zip_code: int = None) -> str:
     """Format location data into a specific structure using model context.
     This demonstrates how to guide an LLM to format data consistently.
 
     Args:
-        context: The model context for prompting
-        zipCode: The zip code to look up
+        zip_code: The zip code to look up
     """
-    zip_data = await zip_service.get_location(zipCode)
+    if zip_code is None:
+        return "zip_code is required."
+
+    zip_data = await zip_service.get_location(zip_code)
     if not zip_data:
         return "Unable to fetch zip data for this location."
 
     prompt = f"{get_format_location_data()}\n\n{zip_data}"
-    return context.prompt(prompt)
+
+    if not context:
+        return f"No model context available to process this prompt: {prompt}."
+
+    try:
+        # This sends a prompt back to the LLM and gets its response
+        response = await context.prompt(
+            prompt=prompt,
+            temperature=0.7,
+            max_tokens=500
+        )
+        return response
+    except Exception as e:
+        return f"Error when prompting LLM: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')
